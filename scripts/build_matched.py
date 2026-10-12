@@ -28,7 +28,7 @@ from probe_monitor.views import Paper, comment_lines, giveaway_hits, leakage_pro
 SETS = {
     "haiku": {"author": "anthropic/claude-haiku-4-5 (agentic, same instructions for both sides)",
               "dirs": ["results/pilot"] + sorted(glob.glob("results/batch*/part*")), "suffix": ""},
-    "sonnet": {"author": "anthropic/claude-sonnet-4-5 (agentic, same instructions for both sides)",
+    "sonnet": {"author": "anthropic/claude-sonnet-5-5 (agentic, same instructions for both sides)",
                "dirs": ["results/sonnet_pilot"] + sorted(glob.glob("results/sonnet_batch*/part*")), "suffix": "_sonnet"},
 }
 MAGIC = re.compile(r"==\s*-?\d{3,}|-?\d{3,}\s*==|==\s*['\"][^'\"]{3,}['\"]")

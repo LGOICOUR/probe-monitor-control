@@ -25,16 +25,16 @@ This is a research evaluation of monitoring methods, not a deployable safeguard.
 
 ![Sonnet same-author pairs: held-out AUROC of the probe at each layer](results/p3/rate_stripped_matched_sonnet/layer_curves.png)
 
-On backdoors written by Claude Sonnet 4.5, the monitor's own rating is at
+On backdoors written by Claude Sonnet 5.5, the monitor's own rating is at
 chance. Its residual stream is not.
 
 AUROC [95% CI from resampling problems] and catch rate at a 2% false-alarm budget. All numbers are on held-out problems (5 grouped folds; every version of a problem stays on one side). "Pairs" means the honest and backdoored versions of a problem were written by the same model under the same instructions, so authorship cannot be the shortcut.
 
-| Set | Probe | Monitor's spoken score | Word counter, no monitor |
-|---|---|---|---|
-| **Sonnet pairs** (82) | **0.91** [0.86, 0.94], catch 50% | 0.54 [0.47, 0.60], catch 5% | 0.80, catch 26% |
-| Human honest vs dataset backdoor (150) | **0.90** [0.87, 0.94], catch 70% | 0.74 [0.70, 0.79], catch 18% | 0.73 |
-| Haiku pairs (102) | **0.99** [0.97, 1.00], catch 95% | 0.95 [0.92, 0.98], catch 73% | 0.89 |
+| Set | Probe | Monitor's spoken score | Word counter, no monitor | Frontier judge (Opus 5.5) |
+|---|---|---|---|---|
+| **Sonnet pairs** (82) | **0.91** [0.86, 0.94], catch 50% | 0.54 [0.47, 0.60], catch 5% | 0.80, catch 26% | 0.99 [0.97, 1.00], catch 98% |
+| Human honest vs dataset backdoor (150) | **0.90** [0.87, 0.94], catch 70% | 0.74 [0.70, 0.79], catch 18% | 0.73 | 0.96 [0.93, 0.98], catch 88% |
+| Haiku pairs (102) | **0.99** [0.97, 1.00], catch 95% | 0.95 [0.92, 0.98], catch 73% | 0.89 | not run |
 
 **A difficulty ladder.** The same monitor rates Haiku's backdoors at 0.95
 (they use magic-number triggers), the dataset's at 0.74, and Sonnet's at 0.54.
@@ -59,6 +59,17 @@ one prompt transfers to the other at only ~0.60 past layer 14, while
 transferring at ~0.80 in layers 1–13. Early layers carry a prompt-independent
 signal about as good as surface words; later layers carry more, under either
 instruction, but in prompt-specific directions.
+
+**Against a frontier judge.** Claude Opus 5.5, given the identical prompt,
+catches 98% of Sonnet's backdoors at the 2% budget (AUROC 0.99) and 88% of the
+dataset's (0.96). So the Sonnet backdoors are not invisible in principle, only
+to a 4B model answering immediately, whose residual stream nonetheless carries
+enough to catch half of them. The probe recovers part of the gap between a
+weak monitor's report and a strong monitor's judgment; it does not close it.
+(The judge reasons visibly before answering, since the current API cannot run
+Opus 5.5 without thinking, so it is a reasoning-first judge with far more
+capacity, not a like-for-like "spoken score". Sonnet 5.5 as judge gives the
+same 0.99 on Sonnet's own backdoors.)
 
 ![Summarize control: probe AUROC by layer under both prompts, with cross-prompt transfer](results/p3/summarize_control_matched_sonnet/layer_curves.png)
 
@@ -98,10 +109,14 @@ uv run python scripts/p2_read.py --papers papers_matched_sonnet.jsonl   # Sonnet
 uv run python scripts/p3_matched.py --set sonnet && uv run python scripts/p3_matched_figure.py --set sonnet
 uv run python scripts/p2_read.py --prompt summarize --papers papers_matched_sonnet.jsonl   # control task
 uv run python scripts/p3_summarize.py --set sonnet
+uv run python scripts/p4_judge.py --model claude-opus-5-5 --sets sonnet original --cap 4   # paid: ~$2.85
+uv run python scripts/p4_judge_analyze.py
 ```
 
-Only the first smoke test (`scripts/p0_smoke.py`) calls a paid API; every other
-eval runs with mock models behind a guard that refuses paid model roles.
+Only the smoke test (`scripts/p0_smoke.py`) and the frontier judge
+(`scripts/p4_judge.py`) call a paid API; the judge refuses to start above a
+dollar cap you pass and caches every answer. Every ControlArena eval runs with
+mock models behind a guard that refuses paid model roles.
 
 ## Data
 
@@ -116,7 +131,7 @@ eval runs with mock models behind a guard that refuses paid model roles.
   instructions (the attacker additionally received ControlArena's Apps side-task
   description), then verified on the test bench.
 - `results/p1/papers_matched_sonnet.jsonl`: 82 same-author pairs, written the
-  same way by Claude Sonnet 4.5.
+  same way by Claude Sonnet 5.5.
 - `results/p2/*/ratings.jsonl`: the monitor's rating probabilities per paper.
   The activation recordings (`acts.npy`) are not committed; `p2_read.py`
   regenerates them.
