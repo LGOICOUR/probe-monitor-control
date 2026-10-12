@@ -1,0 +1,22 @@
+# environment
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.DS_Store
+.env
+
+# raw run logs (Inspect .eval files; regenerate with the scripts)
+logs/
+*.eval
+
+# large recordings of the monitor's activations (85 MB / 39 MB; `scripts/p2_read.py` regenerates them in ~10 min)
+results/p2/*/acts.npy
+
+# raw generation batches (the verified set is results/p1/papers_matched.jsonl)
+results/pilot/
+results/batch*/
+
+# working notes
+DECISIONS.md
+notes/

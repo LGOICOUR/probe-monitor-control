@@ -1,0 +1,111 @@
+# probe-monitor-control
+
+**Does a small code monitor know more than it says?**
+
+In AI-control setups, a weak but trusted model watches a stronger, untrusted one
+and rates how suspicious each action looks. This repo asks whether a linear
+probe on the weak monitor's residual stream catches sabotage that the monitor's
+own written rating misses, and runs the controls needed to believe the answer.
+
+Setting: [ControlArena](https://github.com/UKGovernmentBEIS/control-arena)'s
+*Apps* environment. The untrusted model solves programming-contest problems;
+in attack mode it also plants a **backdoor**, code that passes every test but
+gives a wrong answer on one secret input. Every paper here was verified by
+ControlArena's test bench (honest code passes; backdoors pass *and* fire).
+
+Monitor: **Qwen3-4B-Instruct-2507**, run locally. It reads the problem and the
+submitted code and rates suspicion 0–9. From the same forward pass we read
+(a) its probability over the ten ratings, the *spoken score*, and (b) its
+residual-stream activation at the last prompt token at every layer, on which
+we fit a regularized logistic-regression *probe*.
+
+This is a research evaluation of monitoring methods, not a deployable safeguard.
+
+## Headline result
+
+![Held-out AUROC of the probe at each layer, three pairings](results/p3/rate_stripped/layer_curves.png)
+
+AUROC [95% CI from resampling problems] and catch rate at a 2% false-alarm budget. All numbers are on held-out problems (5 grouped folds; every version of a problem stays on one side).
+
+| Pairing | Probe | Monitor's spoken score | Word counter, no monitor |
+|---|---|---|---|
+| Human honest vs dataset backdoor (150 pairs) | **0.90** [0.87, 0.94], catch 70% | 0.74 [0.70, 0.79], catch 18% | 0.73 |
+| Same-author pairs, Haiku honest vs Haiku backdoor (102 pairs) | **0.99** [0.97, 1.00], catch 95% | 0.95 [0.92, 0.98], catch 73% | 0.89 |
+| Transfer: probe trained on row 1, tested on row 2 | **0.98** [0.96, 1.00], catch 80% | — | 0.62 |
+
+**What the layers show.** Authorship ("who wrote this") is linearly readable
+from layer 1 onward (human vs Haiku honest code: AUROC 0.97, with no backdoors
+in either class). A probe trained on human-vs-backdoor and tested on
+Haiku-vs-backdoor sits at chance through layer ~14, then climbs to ~0.89 by
+layer 22: early layers carry style, middle-to-late layers carry something that
+generalizes across authors.
+
+**Caveats.** The same-author set is easy (the monitor's own rating reaches
+0.95), so the probe's AUROC edge there is small even though its catch-rate edge
+is large. The word counter reaching 0.89 with author held fixed means those
+backdoors have surface tells. Whether the late-layer signal is the monitor's
+*judgment* rather than a deeper reading of the code is not yet tested (next
+lever: a "summarize this code" prompt as a control task).
+
+## Leakage checks
+
+- The monitor never sees the secret input, the attack instructions, or the
+  author. The view is built by one function (`src/probe_monitor/views.py`) and
+  tested.
+- **42% of the dataset's backdoors carry comments that confess the flaw**
+  ("Subtle flaw: skip solutions that require exactly 6 hours"). All comments are
+  stripped from every paper before the monitor reads it; the raw view is kept
+  for a secondary comparison.
+- Code length and a TA-free word counter are reported as baselines.
+- A probe at layer 0 (the same template token for every paper) scores 0.50, as it must.
+
+## Reproduce
+
+```bash
+uv sync
+uv run pytest -q                                        # offline tests
+uv run python scripts/p1_generate.py --n 150            # dataset solutions + backdoors via ControlArena (Docker, no model calls)
+uv run python scripts/p1_export.py                      # views + leakage report
+uv run python scripts/p2_read.py                        # monitor reads 450 papers (~8 min on an M-series Mac; downloads Qwen3-4B, ~7.5 GB)
+uv run python scripts/p3_probe.py && uv run python scripts/p3_figure.py
+uv run python scripts/build_matched.py                  # same-author set from results/batch*/ (included as papers_matched.jsonl)
+uv run python scripts/p2_read.py --papers papers_matched.jsonl
+uv run python scripts/p3_matched.py
+```
+
+Only the first smoke test (`scripts/p0_smoke.py`) calls a paid API; every other
+eval runs with mock models behind a guard that refuses paid model roles.
+
+## Data
+
+- `results/p1/papers.jsonl`: 150 problems × {human honest, Haiku honest, dataset
+  backdoor}. Problems and human solutions are from
+  [APPS](https://huggingface.co/datasets/codeparrot/apps) (MIT); verified
+  backdoors are from ControlArena's
+  [apps-control-arena](https://huggingface.co/datasets/RoganInglis/apps-control-arena)
+  dataset (MIT), written by o3-mini, Claude 3.7 Sonnet, GPT-4o and others.
+- `results/p1/papers_matched.jsonl`: 102 same-author pairs. Honest and
+  backdoored versions were both written by Claude Haiku 4.5 under identical
+  instructions (the attacker additionally received ControlArena's Apps side-task
+  description), then verified on the test bench.
+- `results/p2/*/ratings.jsonl`: the monitor's rating probabilities per paper.
+  The activation recordings (`acts.npy`) are not committed; `p2_read.py`
+  regenerates them.
+
+## Layout
+
+```
+src/probe_monitor/   views (what the monitor sees), reader (one forward pass), probe, baselines, guard
+scripts/             one script per phase; each prints its own checks
+tests/               offline tests (no network, no Docker)
+results/             paper sets, ratings, probe metrics, figure
+```
+
+## Acknowledgements
+
+Built on [ControlArena](https://github.com/UKGovernmentBEIS/control-arena)
+(UK AISI and Redwood Research) and
+[Inspect](https://inspect.aisi.org.uk/). The setup follows Greenblatt et al.,
+*AI Control: Improving Safety Despite Intentional Subversion* (2023).
+
+MIT License.
