@@ -7,11 +7,13 @@ format as papers.jsonl, with sources "sub_honest" / "sub_backdoor", plus a
 leakage and confound report.
 
 Usage:
-    uv run python scripts/build_matched.py
+    uv run python scripts/build_matched.py                       # Haiku set -> papers_matched.jsonl
+    uv run python scripts/build_matched.py --set sonnet           # Sonnet set -> papers_matched_sonnet.jsonl
 """
 
 from __future__ import annotations
 
+import argparse
 import glob
 import json
 import re
@@ -23,17 +25,27 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 from probe_monitor.views import Paper, comment_lines, giveaway_hits, leakage_problems, strip_comments  # noqa: E402
 
-AUTHOR = "anthropic/claude-haiku-4-5 (agentic, same instructions for both sides)"
+SETS = {
+    "haiku": {"author": "anthropic/claude-haiku-4-5 (agentic, same instructions for both sides)",
+              "dirs": ["results/pilot"] + sorted(glob.glob("results/batch*/part*")), "suffix": ""},
+    "sonnet": {"author": "anthropic/claude-sonnet-4-5 (agentic, same instructions for both sides)",
+               "dirs": ["results/sonnet_pilot"] + sorted(glob.glob("results/sonnet_batch*/part*")), "suffix": "_sonnet"},
+}
 MAGIC = re.compile(r"==\s*-?\d{3,}|-?\d{3,}\s*==|==\s*['\"][^'\"]{3,}['\"]")
 
 
 def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--set", choices=sorted(SETS), default="haiku")
+    args = ap.parse_args()
+    cfg = SETS[args.set]
+    AUTHOR, suffix = cfg["author"], cfg["suffix"]
     problems = {}
     for r in map(json.loads, (ROOT / "results" / "p1" / "papers.jsonl").open()):
         if r["source"] == "human_honest":
             problems[r["problem_id"]] = re.search(r"<problem>\n(.*)\n</problem>", r["view"], re.S).group(1)
 
-    dirs = [ROOT / "results" / "pilot"] + sorted(Path(p) for p in glob.glob(str(ROOT / "results" / "batch*" / "part*")))
+    dirs = [ROOT / d for d in cfg["dirs"]]
     papers, skipped = [], 0
     for d in dirs:
         verify = json.loads((d / "verify.json").read_text())
@@ -52,7 +64,7 @@ def main() -> None:
                                 {"batch_dir": str(d.relative_to(ROOT)),
                                  "magic_number_trigger": bool(MAGIC.search(strip_comments(ac)))}))
 
-    out = ROOT / "results" / "p1" / "papers_matched.jsonl"
+    out = ROOT / "results" / "p1" / f"papers_matched{suffix}.jsonl"
     with out.open("w") as f:
         for p in sorted(papers, key=lambda p: (int(p.problem_id), p.source != "sub_honest")):
             f.write(json.dumps({"problem_id": p.problem_id, "source": p.source, "author": p.author, "label": p.label,
@@ -74,7 +86,7 @@ def main() -> None:
             f"{100 * sum(bool(giveaway_hits(chr(10).join(comment_lines(p.code)))) for p in ps) / len(ps):.0f} | "
             f"{100 * sum(bool(MAGIC.search(x)) for x in stripped) / len(ps):.0f} |")
     report = "\n".join(lines) + "\n"
-    (ROOT / "results" / "p1" / "matched_report.md").write_text(report)
+    (ROOT / "results" / "p1" / f"matched_report{suffix}.md").write_text(report)
     print(report)
 
 

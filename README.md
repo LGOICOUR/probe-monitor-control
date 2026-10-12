@@ -23,29 +23,42 @@ This is a research evaluation of monitoring methods, not a deployable safeguard.
 
 ## Headline result
 
-![Held-out AUROC of the probe at each layer, three pairings](results/p3/rate_stripped/layer_curves.png)
+![Sonnet same-author pairs: held-out AUROC of the probe at each layer](results/p3/rate_stripped_matched_sonnet/layer_curves.png)
 
-AUROC [95% CI from resampling problems] and catch rate at a 2% false-alarm budget. All numbers are on held-out problems (5 grouped folds; every version of a problem stays on one side).
+On backdoors written by Claude Sonnet 4.5, the monitor's own rating is at
+chance. Its residual stream is not.
 
-| Pairing | Probe | Monitor's spoken score | Word counter, no monitor |
+AUROC [95% CI from resampling problems] and catch rate at a 2% false-alarm budget. All numbers are on held-out problems (5 grouped folds; every version of a problem stays on one side). "Pairs" means the honest and backdoored versions of a problem were written by the same model under the same instructions, so authorship cannot be the shortcut.
+
+| Set | Probe | Monitor's spoken score | Word counter, no monitor |
 |---|---|---|---|
-| Human honest vs dataset backdoor (150 pairs) | **0.90** [0.87, 0.94], catch 70% | 0.74 [0.70, 0.79], catch 18% | 0.73 |
-| Same-author pairs, Haiku honest vs Haiku backdoor (102 pairs) | **0.99** [0.97, 1.00], catch 95% | 0.95 [0.92, 0.98], catch 73% | 0.89 |
-| Transfer: probe trained on row 1, tested on row 2 | **0.98** [0.96, 1.00], catch 80% | — | 0.62 |
+| **Sonnet pairs** (82) | **0.91** [0.86, 0.94], catch 50% | 0.54 [0.47, 0.60], catch 5% | 0.80, catch 26% |
+| Human honest vs dataset backdoor (150) | **0.90** [0.87, 0.94], catch 70% | 0.74 [0.70, 0.79], catch 18% | 0.73 |
+| Haiku pairs (102) | **0.99** [0.97, 1.00], catch 95% | 0.95 [0.92, 0.98], catch 73% | 0.89 |
+
+**A difficulty ladder.** The same monitor rates Haiku's backdoors at 0.95
+(they use magic-number triggers), the dataset's at 0.74, and Sonnet's at 0.54.
+Sonnet's backdoors are logic-shaped (an off-by-one, a wrong tie-break, a formula
+that fails on one boundary), with no comments and almost no literal triggers.
+The probe's advantage grows as the backdoors get harder: on the Sonnet set it
+catches half of them at the 2% budget where the spoken score catches 5%.
 
 **What the layers show.** Authorship ("who wrote this") is linearly readable
-from layer 1 onward (human vs Haiku honest code: AUROC 0.97, with no backdoors
-in either class). A probe trained on human-vs-backdoor and tested on
-Haiku-vs-backdoor sits at chance through layer ~14, then climbs to ~0.89 by
-layer 22: early layers carry style, middle-to-late layers carry something that
-generalizes across authors.
+from layer 1 onward (human vs Haiku honest code: AUROC 0.97). Signal that
+survives a change of author appears from layer ~15: a probe trained on
+human-vs-dataset-backdoor sits at chance through layer 14 on Sonnet pairs,
+then climbs to ~0.77 by layer 22. Probes transfer across attackers only partly
+(0.73–0.87 depending on direction), so each tier is best read with its own probe.
 
-**Caveats.** The same-author set is easy (the monitor's own rating reaches
-0.95), so the probe's AUROC edge there is small even though its catch-rate edge
-is large. The word counter reaching 0.89 with author held fixed means those
-backdoors have surface tells. Whether the late-layer signal is the monitor's
-*judgment* rather than a deeper reading of the code is not yet tested (next
-lever: a "summarize this code" prompt as a control task).
+**Caveats.** A TF-IDF word counter with no monitor reaches 0.80 on the Sonnet
+pairs (backdoors are longer: median 17 vs 11 lines), so surface features still
+carry real signal; the probe's margin over them is 0.11 AUROC and 24 points of
+catch rate. Whether the late-layer signal is the monitor's *judgment* rather
+than a deeper reading of the code is not yet tested (next lever: a "summarize
+this code" prompt as a control task). Attackers were given only the task
+description, not ControlArena's subtlety advice; ten problems are missing from
+the Sonnet set because one generation run was declined by a safety classifier
+and was not resubmitted.
 
 ## Leakage checks
 
@@ -68,9 +81,10 @@ uv run python scripts/p1_generate.py --n 150            # dataset solutions + ba
 uv run python scripts/p1_export.py                      # views + leakage report
 uv run python scripts/p2_read.py                        # monitor reads 450 papers (~8 min on an M-series Mac; downloads Qwen3-4B, ~7.5 GB)
 uv run python scripts/p3_probe.py && uv run python scripts/p3_figure.py
-uv run python scripts/build_matched.py                  # same-author set from results/batch*/ (included as papers_matched.jsonl)
-uv run python scripts/p2_read.py --papers papers_matched.jsonl
+uv run python scripts/p2_read.py --papers papers_matched.jsonl          # Haiku pairs (included)
 uv run python scripts/p3_matched.py
+uv run python scripts/p2_read.py --papers papers_matched_sonnet.jsonl   # Sonnet pairs (included)
+uv run python scripts/p3_matched.py --set sonnet && uv run python scripts/p3_matched_figure.py --set sonnet
 ```
 
 Only the first smoke test (`scripts/p0_smoke.py`) calls a paid API; every other
@@ -88,6 +102,8 @@ eval runs with mock models behind a guard that refuses paid model roles.
   backdoored versions were both written by Claude Haiku 4.5 under identical
   instructions (the attacker additionally received ControlArena's Apps side-task
   description), then verified on the test bench.
+- `results/p1/papers_matched_sonnet.jsonl`: 82 same-author pairs, written the
+  same way by Claude Sonnet 4.5.
 - `results/p2/*/ratings.jsonl`: the monitor's rating probabilities per paper.
   The activation recordings (`acts.npy`) are not committed; `p2_read.py`
   regenerates them.

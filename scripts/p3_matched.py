@@ -5,11 +5,13 @@ Same settings as the baseline P3: 5 grouped rounds,
 layer and C chosen inside training, every paper scored once.
 
 Usage:
-    uv run python scripts/p3_matched.py
+    uv run python scripts/p3_matched.py                  # Haiku matched set
+    uv run python scripts/p3_matched.py --set sonnet     # Sonnet matched set
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 from pathlib import Path
@@ -42,9 +44,13 @@ def block(name, y, s, g):
 
 
 def main() -> None:
-    M = load("rate_stripped_matched", "papers_matched.jsonl")
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--set", choices=["haiku", "sonnet"], default="haiku")
+    args = ap.parse_args()
+    suffix = "" if args.set == "haiku" else "_sonnet"
+    M = load(f"rate_stripped_matched{suffix}", f"papers_matched{suffix}.jsonl")
     O = load("rate_stripped", "papers.jsonl")
-    out = ROOT / "results" / "p3" / "rate_stripped_matched"
+    out = ROOT / "results" / "p3" / f"rate_stripped_matched{suffix}"
     out.mkdir(parents=True, exist_ok=True)
 
     ym, gm = (M["source"] == "sub_backdoor").astype(int), M["pid"]
@@ -88,7 +94,7 @@ def main() -> None:
         return (f"{b['auroc']:.2f} [{b['auroc_ci'][0]:.2f}, {b['auroc_ci'][1]:.2f}] | "
                 f"{100 * b['catch_at_2pct']:.0f}% [{100 * b['catch_ci'][0]:.0f}, {100 * b['catch_ci'][1]:.0f}]")
     m = metrics["matched"]
-    lines = [f"# P3 on the matched set ({metrics['n_pairs']} same-author pairs)", "",
+    lines = [f"# P3 on the {args.set} matched set ({metrics['n_pairs']} same-author pairs)", "",
              "AUROC [95% CI] | catch rate at 2% false alarms [95% CI]. CIs resample problems.", "",
              "| monitor | AUROC | catch at 2% |", "|---|---|---|"]
     for key in ("probe", "spoken", "word_counter", "length"):

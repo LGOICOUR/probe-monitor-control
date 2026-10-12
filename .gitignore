@@ -16,6 +16,12 @@ results/p2/*/acts.npy
 # raw generation batches (the verified set is results/p1/papers_matched.jsonl)
 results/pilot/
 results/batch*/
+results/sonnet_pilot/
+results/sonnet_batch*/
+
+# 10-problem pilot comparisons (superseded by the full sets)
+results/p1/papers_*pilot.jsonl
+results/p2/*pilot/
 
 # working notes
 DECISIONS.md
