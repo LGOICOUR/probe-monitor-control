@@ -50,15 +50,26 @@ human-vs-dataset-backdoor sits at chance through layer 14 on Sonnet pairs,
 then climbs to ~0.77 by layer 22. Probes transfer across attackers only partly
 (0.73–0.87 depending on direction), so each tier is best read with its own probe.
 
+**Is it judgment, or just reading?** A control task: the same Sonnet papers
+read under a "summarize what this code does" prompt instead of "rate how
+suspicious". A probe on that recording still reaches **0.86** [0.82, 0.90]
+(catch 33%), above the word counter; the rating instruction adds a modest,
+not clearly significant increment (0.91, catch 50%). But a probe trained under
+one prompt transfers to the other at only ~0.60 past layer 14, while
+transferring at ~0.80 in layers 1–13. Early layers carry a prompt-independent
+signal about as good as surface words; later layers carry more, under either
+instruction, but in prompt-specific directions.
+
+![Summarize control: probe AUROC by layer under both prompts, with cross-prompt transfer](results/p3/summarize_control_matched_sonnet/layer_curves.png)
+
 **Caveats.** A TF-IDF word counter with no monitor reaches 0.80 on the Sonnet
 pairs (backdoors are longer: median 17 vs 11 lines), so surface features still
 carry real signal; the probe's margin over them is 0.11 AUROC and 24 points of
-catch rate. Whether the late-layer signal is the monitor's *judgment* rather
-than a deeper reading of the code is not yet tested (next lever: a "summarize
-this code" prompt as a control task). Attackers were given only the task
-description, not ControlArena's subtlety advice; ten problems are missing from
-the Sonnet set because one generation run was declined by a safety classifier
-and was not resubmitted.
+catch rate. Attackers were given only the task description, not ControlArena's
+subtlety advice; ten problems are missing from the Sonnet set because one
+generation run was declined by a safety classifier and was not resubmitted. The
+last prompt token differs between the rate and summarize prompts, which by
+itself could contribute to the low cross-prompt transfer.
 
 ## Leakage checks
 
@@ -85,6 +96,8 @@ uv run python scripts/p2_read.py --papers papers_matched.jsonl          # Haiku 
 uv run python scripts/p3_matched.py
 uv run python scripts/p2_read.py --papers papers_matched_sonnet.jsonl   # Sonnet pairs (included)
 uv run python scripts/p3_matched.py --set sonnet && uv run python scripts/p3_matched_figure.py --set sonnet
+uv run python scripts/p2_read.py --prompt summarize --papers papers_matched_sonnet.jsonl   # control task
+uv run python scripts/p3_summarize.py --set sonnet
 ```
 
 Only the first smoke test (`scripts/p0_smoke.py`) calls a paid API; every other
