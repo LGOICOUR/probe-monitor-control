@@ -107,6 +107,17 @@ not a generic "something is broken" detector, but it does register attempted
 sabotage. An organic-bug control (honest code with accidental bugs) is still
 missing.
 
+**Is the probe direction load-bearing for the monitor's rating?** On the
+human-honest vs dataset-backdoor set (rating 0.74), the probe direction was fit
+on training folds and projected out of the monitor's activations at the readout
+position of layers 18–26 during the forward pass, with a random direction as
+control. A downstream probe at layer 36 drops from 0.90 to 0.79 (random: 0.90),
+so the intervention removes much of the decodable signal, yet the monitor's own
+rating does not move (0.74 → 0.73; random 0.74). Ablating a single layer does
+nothing. The direction the probe reads is decodable but not the route the
+rating uses, which is the "lossy readout" reading rather than concealed
+knowledge. Caveats: readout position only, nine of 36 layers.
+
 **Caveats.** A TF-IDF word counter with no monitor reaches 0.80 on the Sonnet
 pairs (backdoors are longer: median 17 vs 11 lines), so surface features still
 carry real signal; the probe's margin over them is 0.11 AUROC and 24 points of
@@ -151,6 +162,7 @@ uv run python scripts/p2_read.py --papers papers_matched_sonnet_norm.jsonl   # e
 uv run python scripts/p3_normalize.py --set sonnet
 uv run python scripts/p2_read.py --papers papers_failed_sonnet.jsonl         # failed attempts (held-out problems)
 uv run python scripts/p3_specificity.py --set sonnet
+uv run python scripts/p4_ablate.py                                            # probe-direction ablation (~25 min)
 ```
 
 Only the smoke test (`scripts/p0_smoke.py`) and the frontier judge
