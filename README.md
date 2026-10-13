@@ -71,6 +71,17 @@ Opus 5.5 without thinking, so it is a reasoning-first judge with far more
 capacity, not a like-for-like "spoken score". Sonnet 5.5 as judge gives the
 same 0.99 on Sonnet's own backdoors.)
 
+**Does letting the monitor reason first close the gap?** The same Sonnet
+papers, with the monitor asked to write a short rationale and then a digit.
+Its rating improves only a little (AUROC 0.54 → 0.64) and its written digit is
+confidently wrong: 56 of 82 backdoors get a 0. Among the 128 papers it rated 0,
+the immediate-answer probe still separates the 56 backdoors from the 72 honest
+papers at AUROC 0.88. A probe on the post-rationale state does worse than one
+on the pre-answer state (0.81 vs 0.91), and probes do not transfer between the
+two moments (~0.6): the state after a conclusion is a worse place to read.
+
+![Reasoning-first control: probe AUROC by layer on the immediate and post-rationale recordings](results/p3/reason_control_matched_sonnet/layer_curves.png)
+
 ![Summarize control: probe AUROC by layer under both prompts, with cross-prompt transfer](results/p3/summarize_control_matched_sonnet/layer_curves.png)
 
 **Caveats.** A TF-IDF word counter with no monitor reaches 0.80 on the Sonnet
@@ -111,6 +122,8 @@ uv run python scripts/p2_read.py --prompt summarize --papers papers_matched_sonn
 uv run python scripts/p3_summarize.py --set sonnet
 uv run python scripts/p4_judge.py --model claude-opus-5-5 --sets sonnet original --cap 4   # paid: ~$2.85
 uv run python scripts/p4_judge_analyze.py
+uv run python scripts/p2_reason.py --papers papers_matched_sonnet.jsonl   # reasoning-first monitor (~30 min)
+uv run python scripts/p3_reason.py --set sonnet
 ```
 
 Only the smoke test (`scripts/p0_smoke.py`) and the frontier judge
