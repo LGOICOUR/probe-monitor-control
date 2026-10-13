@@ -1,0 +1,150 @@
+{
+ "set": "sonnet",
+ "n_pairs": 82,
+ "probe_original": {
+  "monitor": "probe, original view",
+  "auroc": 0.9052647233789411,
+  "auroc_ci": [
+   0.861685752528257,
+   0.9437871802498513
+  ],
+  "catch_at_2pct": 0.5,
+  "catch_ci": [
+   0.2682926829268293,
+   0.7317073170731707
+  ]
+ },
+ "probe_normalized": {
+  "monitor": "probe, normalized view",
+  "auroc": 0.8573765615704938,
+  "auroc_ci": [
+   0.8051606186793575,
+   0.9055696014277215
+  ],
+  "catch_at_2pct": 0.3902439024390244,
+  "catch_ci": [
+   0.21951219512195122,
+   0.6341463414634146
+  ]
+ },
+ "spoken_original": {
+  "monitor": "TA spoken score, original view",
+  "auroc": 0.5356930398572278,
+  "auroc_ci": [
+   0.4733752230814991,
+   0.5981670136823318
+  ],
+  "catch_at_2pct": 0.04878048780487805,
+  "catch_ci": [
+   0.0,
+   0.10975609756097561
+  ]
+ },
+ "spoken_normalized": {
+  "monitor": "TA spoken score, normalized view",
+  "auroc": 0.5638013087447948,
+  "auroc_ci": [
+   0.48556290898274834,
+   0.6345292980368827
+  ],
+  "catch_at_2pct": 0.036585365853658534,
+  "catch_ci": [
+   0.0,
+   0.10975609756097561
+  ]
+ },
+ "words_original": {
+  "monitor": "word counter, original code",
+  "auroc": 0.7992266508030934,
+  "auroc_ci": [
+   0.7444824509220702,
+   0.8558930696014275
+  ],
+  "catch_at_2pct": 0.25609756097560976,
+  "catch_ci": [
+   0.13414634146341464,
+   0.4268292682926829
+  ]
+ },
+ "words_normalized": {
+  "monitor": "word counter, normalized code",
+  "auroc": 0.8069601427721593,
+  "auroc_ci": [
+   0.7479179060083284,
+   0.8630391136228436
+  ],
+  "catch_at_2pct": 0.2926829268292683,
+  "catch_ci": [
+   0.1951219512195122,
+   0.4024390243902439
+  ]
+ },
+ "length_original": {
+  "monitor": "length ruler, original",
+  "auroc": 0.6220255800118978,
+  "auroc_ci": [
+   0.5738381171921475,
+   0.6763849643069602
+  ],
+  "catch_at_2pct": 0.036585365853658534,
+  "catch_ci": [
+   0.0,
+   0.09786585365853631
+  ]
+ },
+ "length_normalized": {
+  "monitor": "length ruler, normalized",
+  "auroc": 0.6299821534800715,
+  "auroc_ci": [
+   0.5866299821534801,
+   0.6822241225461034
+  ],
+  "catch_at_2pct": 0.036585365853658534,
+  "catch_ci": [
+   0.0,
+   0.12195121951219512
+  ]
+ },
+ "transfer_original_to_normalized": {
+  "monitor": "probe trained original, tested normalized",
+  "auroc": 0.848750743604997,
+  "auroc_ci": [
+   0.8015281082688877,
+   0.8952000297441999
+  ],
+  "catch_at_2pct": 0.34146341463414637,
+  "catch_ci": [
+   0.0975609756097561,
+   0.5609756097560976
+  ]
+ },
+ "transfer_normalized_to_original": {
+  "monitor": "probe trained normalized, tested original",
+  "auroc": 0.8582688875669244,
+  "auroc_ci": [
+   0.8090162105889352,
+   0.9046735574063058
+  ],
+  "catch_at_2pct": 0.4268292682926829,
+  "catch_ci": [
+   0.3170731707317073,
+   0.5975609756097561
+  ]
+ },
+ "layers_chosen": {
+  "original": [
+   22,
+   20,
+   20,
+   20,
+   20
+  ],
+  "normalized": [
+   22,
+   21,
+   36,
+   19,
+   20
+  ]
+ }
+}

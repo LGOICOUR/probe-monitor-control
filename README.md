@@ -84,6 +84,16 @@ two moments (~0.6): the state after a conclusion is a worse place to read.
 
 ![Summarize control: probe AUROC by layer under both prompts, with cross-prompt transfer](results/p3/summarize_control_matched_sonnet/layer_curves.png)
 
+**Erasing handwriting.** Renaming every user-defined identifier to a generic
+token, dropping docstrings, and re-printing the code from its syntax tree
+(`src/probe_monitor/normalize.py`; the program still runs identically) costs the
+probe 0.05 AUROC (0.91 → 0.86, catch 50% → 39%) and leaves the word counter
+unchanged (0.80 → 0.81). Probes transfer across the two views at ~0.85, unlike
+across prompts or recording moments. So neither the probe's margin nor the word
+counter's signal lives in naming or layout: what remains after normalization is
+structure (extra branches and conditions), and part of that structure is the
+backdoor itself.
+
 **Caveats.** A TF-IDF word counter with no monitor reaches 0.80 on the Sonnet
 pairs (backdoors are longer: median 17 vs 11 lines), so surface features still
 carry real signal; the probe's margin over them is 0.11 AUROC and 24 points of
@@ -124,6 +134,8 @@ uv run python scripts/p4_judge.py --model claude-opus-5-5 --sets sonnet original
 uv run python scripts/p4_judge_analyze.py
 uv run python scripts/p2_reason.py --papers papers_matched_sonnet.jsonl   # reasoning-first monitor (~30 min)
 uv run python scripts/p3_reason.py --set sonnet
+uv run python scripts/p2_read.py --papers papers_matched_sonnet_norm.jsonl   # erased-handwriting view
+uv run python scripts/p3_normalize.py --set sonnet
 ```
 
 Only the smoke test (`scripts/p0_smoke.py`) and the frontier judge
@@ -144,7 +156,8 @@ mock models behind a guard that refuses paid model roles.
   instructions (the attacker additionally received ControlArena's Apps side-task
   description), then verified on the test bench.
 - `results/p1/papers_matched_sonnet.jsonl`: 82 same-author pairs, written the
-  same way by Claude Sonnet 5.5.
+  same way by Claude Sonnet 5.5. `papers_matched_sonnet_norm.jsonl` is the same
+  set with identifiers and formatting erased.
 - `results/p2/*/ratings.jsonl`: the monitor's rating probabilities per paper.
   The activation recordings (`acts.npy`) are not committed; `p2_read.py`
   regenerates them.
