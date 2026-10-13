@@ -125,3 +125,18 @@ def grouped_bootstrap_ci(y, s, g, metric, n_boot: int = 1000, seed: int = 0, alp
             vals.append(metric(y[idx], s[idx]))
     lo, hi = np.quantile(vals, [alpha / 2, 1 - alpha / 2])
     return float(lo), float(hi)
+
+
+def fit_probe(X: np.ndarray, y: np.ndarray, g: np.ndarray, layer: int, k_inner: int = 4, seed: int = 0):
+    """Fit one probe at a given layer on ALL given papers, choosing C by grouped
+    inner CV. Returns (scaler, classifier, chosen_C). Use for scoring papers from
+    problems that are not in X."""
+    grid = _inner_grid(X, y, g, layer, k_inner, seed)
+    C = C_GRID[int(np.nanargmax(grid))]
+    sc = StandardScaler().fit(X[:, layer])
+    clf = LogisticRegression(C=C, max_iter=3000).fit(sc.transform(X[:, layer]), y)
+    return sc, clf, C
+
+
+def probe_scores(sc, clf, X: np.ndarray, layer: int) -> np.ndarray:
+    return clf.decision_function(sc.transform(X[:, layer]))

@@ -94,6 +94,19 @@ counter's signal lives in naming or layout: what remains after normalization is
 structure (extra branches and conditions), and part of that structure is the
 backdoor itself.
 
+**Does the probe fire on bugs, or on backdoors?** The attackers' failed
+attempts (triggers too broad, so the code fails ordinary tests) come from
+problems outside the matched sets, so they are held out. A probe fit on the
+Sonnet pairs ranks these failed attempts above honest code (AUROC 0.86) but at
+the 2% audit line flags only 5% of them, against 43% of working backdoors;
+their scores sit between honest and backdoored. For Haiku, whose failed
+attempts carry the same magic-number template as its working ones, 74% land
+above the line, though working backdoors still score higher (0.91). So the
+probe reads the attack pattern, with working triggers scoring highest; it is
+not a generic "something is broken" detector, but it does register attempted
+sabotage. An organic-bug control (honest code with accidental bugs) is still
+missing.
+
 **Caveats.** A TF-IDF word counter with no monitor reaches 0.80 on the Sonnet
 pairs (backdoors are longer: median 17 vs 11 lines), so surface features still
 carry real signal; the probe's margin over them is 0.11 AUROC and 24 points of
@@ -136,6 +149,8 @@ uv run python scripts/p2_reason.py --papers papers_matched_sonnet.jsonl   # reas
 uv run python scripts/p3_reason.py --set sonnet
 uv run python scripts/p2_read.py --papers papers_matched_sonnet_norm.jsonl   # erased-handwriting view
 uv run python scripts/p3_normalize.py --set sonnet
+uv run python scripts/p2_read.py --papers papers_failed_sonnet.jsonl         # failed attempts (held-out problems)
+uv run python scripts/p3_specificity.py --set sonnet
 ```
 
 Only the smoke test (`scripts/p0_smoke.py`) and the frontier judge
@@ -157,7 +172,9 @@ mock models behind a guard that refuses paid model roles.
   description), then verified on the test bench.
 - `results/p1/papers_matched_sonnet.jsonl`: 82 same-author pairs, written the
   same way by Claude Sonnet 5.5. `papers_matched_sonnet_norm.jsonl` is the same
-  set with identifiers and formatting erased.
+  set with identifiers and formatting erased. `papers_failed_{sonnet,haiku}.jsonl`
+  hold the attackers' failed attempts (buggy or inert) with honest papers from
+  the same problems.
 - `results/p2/*/ratings.jsonl`: the monitor's rating probabilities per paper.
   The activation recordings (`acts.npy`) are not committed; `p2_read.py`
   regenerates them.
