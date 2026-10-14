@@ -12,6 +12,7 @@ logs/
 
 # large recordings of the monitor's activations (85 MB / 39 MB; `scripts/p2_read.py` regenerates them in ~10 min)
 results/p2/*/acts.npy
+results/p4_ablation/final_acts_*.npz
 
 # raw generation batches (the verified set is results/p1/papers_matched.jsonl)
 results/pilot/

@@ -35,17 +35,23 @@ sys.path.insert(0, str(ROOT / "src"))
 from probe_monitor.probe import catch_rate_at_fpr, fit_probe, grouped_bootstrap_ci, grouped_folds, probe_scores  # noqa: E402
 from probe_monitor.reader import build_prompt, digit_token_ids, load_ta  # noqa: E402
 
-SCOPES = {"single": [22], "band": list(range(18, 27))}
+SCOPES = {"single": [22], "band": list(range(18, 27)), "wide": list(range(15, 37)), "wide_all": list(range(15, 37))}
+ALL_POSITIONS = {"wide_all"}  # remove the direction at every token, not just the readout position
 FINAL = 36
 
 
-def directions(M, y, g, layers, seed):
-    """Per layer: probe unit direction (raw space), honest mean, random unit direction."""
+def directions(M, y, g, layers, seed, kind="probe"):
+    """Per layer: unit direction (raw space), honest mean, random unit direction.
+    kind="probe": the fold-trained logistic-regression weight vector;
+    kind="diffmeans": normalized (mean_backdoor - mean_honest), as in Arditi et al."""
     out = {}
     rng = np.random.default_rng(seed)
     for L in layers:
-        sc, clf, _ = fit_probe(M, y, g, L)
-        w = clf.coef_[0] / sc.scale_  # back to raw activation space
+        if kind == "diffmeans":
+            w = M[y == 1, L].mean(0) - M[y == 0, L].mean(0)
+        else:
+            sc, clf, _ = fit_probe(M, y, g, L)
+            w = clf.coef_[0] / sc.scale_  # back to raw activation space
         u = w / np.linalg.norm(w)
         mu = M[y == 0, L].mean(0)
         r = rng.normal(size=u.shape); r /= np.linalg.norm(r)
@@ -53,27 +59,32 @@ def directions(M, y, g, layers, seed):
     return out
 
 
-def make_hook(u, mu, device):
+def make_hook(u, mu, device, all_positions=False):
     u_t = torch.tensor(u, device=device); mu_t = torch.tensor(mu, device=device)
 
     def hook(_m, _a, out):
         h = out[0] if isinstance(out, tuple) else out
-        last = h[0, -1].float()
-        proj = torch.dot(last - mu_t, u_t)
-        h[0, -1] = (last - proj * u_t).to(h.dtype)
+        if all_positions:
+            x = h[0].float()                       # [seq, width]
+            proj = (x - mu_t) @ u_t                 # [seq]
+            h[0] = (x - proj[:, None] * u_t).to(h.dtype)
+        else:
+            last = h[0, -1].float()
+            proj = torch.dot(last - mu_t, u_t)
+            h[0, -1] = (last - proj * u_t).to(h.dtype)
         return out
 
     return hook
 
 
 @torch.no_grad()
-def read_with_ablation(tok, model, device, prompt_text, digit_ids, dirs, use_random):
+def read_with_ablation(tok, model, device, prompt_text, digit_ids, dirs, use_random, all_positions=False):
     msgs = [{"role": "user", "content": prompt_text}]
     enc = tok.apply_chat_template(msgs, add_generation_prompt=True, return_tensors="pt", return_dict=True).to(device)
     handles = []
     for L, (u, mu, r) in dirs.items():
         # our layer index L = hidden_states[L] = output of decoder layer L-1
-        handles.append(model.model.layers[L - 1].register_forward_hook(make_hook(r if use_random else u, mu, device)))
+        handles.append(model.model.layers[L - 1].register_forward_hook(make_hook(r if use_random else u, mu, device, all_positions)))
     try:
         out = model(**enc, output_hidden_states=True)
     finally:
@@ -94,6 +105,7 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--scopes", nargs="+", choices=sorted(SCOPES), default=["single", "band"])
+    ap.add_argument("--direction", choices=["probe", "diffmeans"], default="probe")
     args = ap.parse_args()
     d = ROOT / "results" / "p2" / "rate_stripped"
     rows_all = [json.loads(l) for l in (d / "ratings.jsonl").open()]
@@ -109,7 +121,8 @@ def main() -> None:
     tok, model, device = load_ta()
     digit_ids = digit_token_ids(tok)
 
-    results = {"n": len(rows), "baseline_spoken": block(y, spoken0, g)}
+    (ROOT / "results" / "p4_ablation").mkdir(parents=True, exist_ok=True)
+    results = {"n": len(rows), "direction": args.direction, "baseline_spoken": block(y, spoken0, g)}
     t0 = time.time()
     for scope in args.scopes:
         layers = SCOPES[scope]
@@ -118,16 +131,19 @@ def main() -> None:
         down = {"probe": np.zeros(len(y)), "random": np.zeros(len(y))}
         for f in range(5):
             tr, te = folds != f, np.where(folds == f)[0]
-            dirs = directions(A[tr], y[tr], g[tr], layers, seed=f)
+            dirs = directions(A[tr], y[tr], g[tr], layers, seed=f, kind=args.direction)
             sc36, clf36, _ = fit_probe(A[tr], y[tr], g[tr], FINAL)  # downstream decodability check
             for which in ("probe", "random"):
                 for i in te:
                     r = rows[i]
                     s, fin = read_with_ablation(tok, model, device, build_prompt(papers[(r["problem_id"], r["source"])]["view"], "rate"),
-                                                digit_ids, dirs, use_random=(which == "random"))
+                                                digit_ids, dirs, use_random=(which == "random"), all_positions=(scope in ALL_POSITIONS))
                     spoken[which][i] = s; final[which][i] = fin
                 down[which][te] = probe_scores(sc36, clf36, final[which][te][:, None, :].repeat(FINAL + 1, axis=1), FINAL)
             print(f"{scope}: fold {f + 1}/5 done, {time.time() - t0:.0f}s", flush=True)
+        dtag = "" if args.direction == "probe" else f"_{args.direction}"
+        np.savez(ROOT / "results" / "p4_ablation" / f"final_acts_{scope}{dtag}.npz", probe=final["probe"], random=final["random"],
+                 y=y, g=g, spoken_probe=spoken["probe"], spoken_random=spoken["random"], spoken0=spoken0)
         results[scope] = {
             "layers": layers,
             "spoken_after_probe_ablation": block(y, spoken["probe"], g),
@@ -140,18 +156,18 @@ def main() -> None:
                                          "backdoor": float(np.mean(spoken["random"][y == 1] - spoken0[y == 1]))},
         }
     out = ROOT / "results" / "p4_ablation"
-    out.mkdir(parents=True, exist_ok=True)
-    (out / "metrics.json").write_text(json.dumps(results, indent=1))
+    tag = ("" if args.scopes == ["single", "band"] else "_" + "_".join(args.scopes)) + ("" if args.direction == "probe" else f"_{args.direction}")
+    (out / f"metrics{tag}.json").write_text(json.dumps(results, indent=1))
 
     def f(b):
         return f"{b['auroc']:.2f} [{b['auroc_ci'][0]:.2f}, {b['auroc_ci'][1]:.2f}] | {100 * b['catch_at_2pct']:.0f}%"
-    lines = [f"# Probe-direction ablation, human honest vs dataset backdoor ({int(y.sum())} pairs)", "",
+    lines = [f"# {'Diff-in-means' if args.direction == 'diffmeans' else 'Probe'}-direction ablation, human honest vs dataset backdoor ({int(y.sum())} pairs)", "",
              "Spoken score = monitor's expected rating from its digit probabilities. Downstream check = a layer-36 probe trained on unablated training papers, applied to the ablated held-out papers.", "",
              "| condition | spoken AUROC [95% CI] | catch at 2% |", "|---|---|---|",
              f"| baseline, no ablation | {f(results['baseline_spoken'])} |"]
     for scope in args.scopes:
         R = results[scope]
-        lines += [f"| {scope} (layers {R['layers'][0]}–{R['layers'][-1]}): probe direction removed | {f(R['spoken_after_probe_ablation'])} |",
+        lines += [f"| {scope} (layers {R['layers'][0]}–{R['layers'][-1]}{', all positions' if scope in ALL_POSITIONS else ''}): probe direction removed | {f(R['spoken_after_probe_ablation'])} |",
                   f"| {scope}: random direction removed (control) | {f(R['spoken_after_random_ablation'])} |"]
     lines += ["", "| condition | downstream layer-36 probe AUROC | catch |", "|---|---|---|"]
     for scope in args.scopes:
@@ -164,7 +180,7 @@ def main() -> None:
         lines.append(f"- {scope}: mean rating shift after probe ablation, honest {R['mean_rating_shift_probe']['honest']:+.2f}, "
                      f"backdoor {R['mean_rating_shift_probe']['backdoor']:+.2f}; random: honest {R['mean_rating_shift_random']['honest']:+.2f}, "
                      f"backdoor {R['mean_rating_shift_random']['backdoor']:+.2f}")
-    (out / "summary.md").write_text("\n".join(lines) + "\n")
+    (out / f"summary{tag}.md").write_text("\n".join(lines) + "\n")
     print("\n".join(lines))
 
 

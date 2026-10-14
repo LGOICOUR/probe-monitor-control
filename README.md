@@ -108,15 +108,27 @@ sabotage. An organic-bug control (honest code with accidental bugs) is still
 missing.
 
 **Is the probe direction load-bearing for the monitor's rating?** On the
-human-honest vs dataset-backdoor set (rating 0.74), the probe direction was fit
-on training folds and projected out of the monitor's activations at the readout
-position of layers 18–26 during the forward pass, with a random direction as
-control. A downstream probe at layer 36 drops from 0.90 to 0.79 (random: 0.90),
-so the intervention removes much of the decodable signal, yet the monitor's own
-rating does not move (0.74 → 0.73; random 0.74). Ablating a single layer does
-nothing. The direction the probe reads is decodable but not the route the
-rating uses, which is the "lossy readout" reading rather than concealed
-knowledge. Caveats: readout position only, nine of 36 layers.
+human-honest vs dataset-backdoor set (rating 0.74), a direction fit on training
+folds is projected out of the monitor's activations at layers 15–36 during the
+forward pass (each paper is moved onto the honest mean along that direction),
+with a random direction as control. Two directions give opposite answers:
+
+| Direction removed, layers 15–36 | Readout position | Every position | Random control |
+|---|---|---|---|
+| The probe's logistic direction | rating 0.72 (catch 7%) | rating 0.65 [0.60, 0.71] | 0.74 / 0.73 |
+| The class-mean (diff-in-means) direction | rating **0.39** | rating **0.23** | 0.74 / 0.73 |
+
+The two directions are nearly orthogonal at the readout layers (cosine
+0.06–0.22 from layer 22 on). The class-mean direction tracks the rating itself
+(Spearman 0.73–0.79) and, early, code length; removing it inverts the rating.
+The probe's direction separates backdoors better (0.90 vs 0.74) and the rating
+uses it only partly. In both cases a probe refit on the ablated activations
+still decodes the label at ~0.8–0.9, so a single direction per layer removes a
+line through the concept, not the concept; full erasure is future work.
+Reading: the rating and the probe read nearly orthogonal lines through
+"backdoor", which is the "lossy readout" picture rather than concealed
+knowledge. Caveat: the every-position variant projects each token onto the
+last-token honest mean, a mismatch that perturbs the model generally.
 
 **Caveats.** A TF-IDF word counter with no monitor reaches 0.80 on the Sonnet
 pairs (backdoors are longer: median 17 vs 11 lines), so surface features still
@@ -162,7 +174,8 @@ uv run python scripts/p2_read.py --papers papers_matched_sonnet_norm.jsonl   # e
 uv run python scripts/p3_normalize.py --set sonnet
 uv run python scripts/p2_read.py --papers papers_failed_sonnet.jsonl         # failed attempts (held-out problems)
 uv run python scripts/p3_specificity.py --set sonnet
-uv run python scripts/p4_ablate.py                                            # probe-direction ablation (~25 min)
+uv run python scripts/p4_ablate.py --scopes wide wide_all                     # probe-direction ablation (~20 min)
+uv run python scripts/p4_ablate.py --scopes wide wide_all --direction diffmeans
 ```
 
 Only the smoke test (`scripts/p0_smoke.py`) and the frontier judge

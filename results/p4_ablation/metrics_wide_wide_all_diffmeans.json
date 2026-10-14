@@ -1,0 +1,144 @@
+{
+ "n": 300,
+ "direction": "diffmeans",
+ "baseline_spoken": {
+  "auroc": 0.7427555555555556,
+  "auroc_ci": [
+   0.6962455555555556,
+   0.7922677777777778
+  ],
+  "catch_at_2pct": 0.18
+ },
+ "wide": {
+  "layers": [
+   15,
+   16,
+   17,
+   18,
+   19,
+   20,
+   21,
+   22,
+   23,
+   24,
+   25,
+   26,
+   27,
+   28,
+   29,
+   30,
+   31,
+   32,
+   33,
+   34,
+   35,
+   36
+  ],
+  "spoken_after_probe_ablation": {
+   "auroc": 0.39417777777777774,
+   "auroc_ci": [
+    0.3339966666666666,
+    0.4542755555555555
+   ],
+   "catch_at_2pct": 0.0
+  },
+  "spoken_after_random_ablation": {
+   "auroc": 0.7384000000000001,
+   "auroc_ci": [
+    0.6899977777777777,
+    0.7858355555555555
+   ],
+   "catch_at_2pct": 0.18666666666666668
+  },
+  "downstream_probe_layer36_after_probe_ablation": {
+   "auroc": 0.6203111111111111,
+   "auroc_ci": [
+    0.5700366666666666,
+    0.6686288888888889
+   ],
+   "catch_at_2pct": 0.04666666666666667
+  },
+  "downstream_probe_layer36_after_random_ablation": {
+   "auroc": 0.8987555555555556,
+   "auroc_ci": [
+    0.8644833333333333,
+    0.9306255555555556
+   ],
+   "catch_at_2pct": 0.68
+  },
+  "mean_rating_shift_probe": {
+   "honest": 0.5021088978127921,
+   "backdoor": -0.30542811393561276
+  },
+  "mean_rating_shift_random": {
+   "honest": 0.021403237864201476,
+   "backdoor": -0.0002796666196958834
+  }
+ },
+ "wide_all": {
+  "layers": [
+   15,
+   16,
+   17,
+   18,
+   19,
+   20,
+   21,
+   22,
+   23,
+   24,
+   25,
+   26,
+   27,
+   28,
+   29,
+   30,
+   31,
+   32,
+   33,
+   34,
+   35,
+   36
+  ],
+  "spoken_after_probe_ablation": {
+   "auroc": 0.23222222222222225,
+   "auroc_ci": [
+    0.19506222222222222,
+    0.2705533333333333
+   ],
+   "catch_at_2pct": 0.0
+  },
+  "spoken_after_random_ablation": {
+   "auroc": 0.7312444444444444,
+   "auroc_ci": [
+    0.6854988888888889,
+    0.7804111111111112
+   ],
+   "catch_at_2pct": 0.08
+  },
+  "downstream_probe_layer36_after_probe_ablation": {
+   "auroc": 0.7714666666666666,
+   "auroc_ci": [
+    0.7339922222222223,
+    0.8120444444444443
+   ],
+   "catch_at_2pct": 0.24666666666666667
+  },
+  "downstream_probe_layer36_after_random_ablation": {
+   "auroc": 0.816,
+   "auroc_ci": [
+    0.7798633333333335,
+    0.8543688888888888
+   ],
+   "catch_at_2pct": 0.34
+  },
+  "mean_rating_shift_probe": {
+   "honest": 1.2245554484076453,
+   "backdoor": 0.4958922561929658
+  },
+  "mean_rating_shift_random": {
+   "honest": -0.4206789145142807,
+   "backdoor": -0.11142341001459034
+  }
+ }
+}
